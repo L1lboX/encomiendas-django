@@ -229,6 +229,22 @@ class EncomiendaPropertiesAndMethodsTests(BaseModelTestCase):
             ).exists()
         )
 
+    def test_cambiar_estado_permite_fecha_estimada_vencida_existente(self):
+        ayer = timezone.now().date() - timedelta(days=1)
+        Encomienda.objects.filter(pk=self.encomienda_pendiente.pk).update(
+            fecha_entrega_est=ayer
+        )
+        self.encomienda_pendiente.refresh_from_db()
+
+        self.encomienda_pendiente.cambiar_estado(
+            nuevo_estado=EstadoEnvio.EN_TRANSITO,
+            empleado=self.empleado,
+            observacion="Salida a ruta",
+        )
+        self.encomienda_pendiente.refresh_from_db()
+
+        self.assertEqual(self.encomienda_pendiente.estado, EstadoEnvio.EN_TRANSITO)
+
     def test_crear_con_costo_calculado(self):
         encomienda = Encomienda.crear_con_costo_calculado(
             remitente=self.remitente,

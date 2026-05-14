@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Listado - Encomiendas{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="h3"><i class="fas fa-list me-2"></i>Encomiendas</h2>
+    <a class="btn btn-primary" href="{% url 'encomienda_crear' %}">
+        <i class="fas fa-plus me-1"></i>Nueva encomienda
+    </a>
+</div>
+
+<div class="card shadow">
+    <div class="card-header bg-white">
+        <form class="row g-3 align-items-end" method="get">
+            <div class="col-md-6">
+                <label class="form-label" for="q">Busqueda</label>
+                <input class="form-control" id="q" name="q" value="{{ q }}" placeholder="Codigo, cliente o ruta">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" for="estado">Estado</label>
+                <select class="form-select" id="estado" name="estado">
+                    <option value="">Todos</option>
+                    {% for value,label in estado_envio_choices %}
+                        <option value="{{ value }}"{% if value == estado_actual %} selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button class="btn btn-primary" type="submit">
+                    <i class="fas fa-search me-1"></i>Filtrar
+                </button>
+                <a class="btn btn-outline-secondary" href="{% url 'encomienda_lista' %}">Limpiar</a>
+            </div>
+        </form>
+    </div>
+
+    <div class="card-body">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Codigo</th>
+                    <th>Ruta</th>
+                    <th>Remitente</th>
+                    <th>Destinatario</th>
+                    <th>Registro</th>
+                    <th>Estado</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for enc in page_obj %}
+                    <tr>
+                        <td><strong>{{ enc.codigo }}</strong></td>
+                        <td>{{ enc.ruta.origen }} - {{ enc.ruta.destino }}</td>
+                        <td>{{ enc.remitente.nombre_completo }}</td>
+                        <td>{{ enc.destinatario.nombre_completo }}</td>
+                        <td>{{ enc.fecha_registro|date:"d/m/Y H:i" }}</td>
+                        <td><span class="badge-estado badge-{{ enc.estado }}">{{ enc.get_estado_display }}</span></td>
+                        <td>
+                            <a class="btn btn-sm btn-outline-primary" href="{% url 'encomienda_detalle' enc.pk %}">Ver</a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-3">No hay encomiendas</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer bg-white">
+        {% include "partials/paginacion.html" with page_obj=page_obj querystring=querystring %}
+    </div>
+</div>
+{% endblock %}

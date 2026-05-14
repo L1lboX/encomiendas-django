@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Ingresar - Encomiendas{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="card shadow">
+            <div class="card-body p-4">
+                <h2 class="h3 mb-4"><i class="fas fa-sign-in-alt me-2"></i>Iniciar sesion</h2>
+        <form method="post" novalidate>
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+            {% endif %}
+            <div class="mb-3">
+                <label class="form-label" for="{{ form.username.id_for_label }}">Usuario</label>
+                <input class="form-control" type="text" name="{{ form.username.html_name }}" id="{{ form.username.id_for_label }}" required autofocus>
+                {{ form.username.errors }}
+            </div>
+            <div class="mb-4">
+                <label class="form-label" for="{{ form.password.id_for_label }}">Contrasena</label>
+                <input class="form-control" type="password" name="{{ form.password.html_name }}" id="{{ form.password.id_for_label }}" required>
+                {{ form.password.errors }}
+            </div>
+            <input type="hidden" name="next" value="{{ next }}">
+            <button class="btn btn-primary w-100" type="submit">Ingresar</button>
+        </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

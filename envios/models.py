@@ -130,8 +130,17 @@ class Encomienda(models.Model):
                     "El destinatario no puede ser el mismo que el remitente."
                 )
 
-        if self.fecha_entrega_est:
-            if self.fecha_entrega_est < timezone.now().date():
+        if self.fecha_entrega_est and self.fecha_entrega_est < timezone.now().date():
+            fecha_est_cambio = self._state.adding
+            if not self._state.adding and self.pk:
+                fecha_est_original = (
+                    type(self).objects.filter(pk=self.pk)
+                    .values_list("fecha_entrega_est", flat=True)
+                    .first()
+                )
+                fecha_est_cambio = fecha_est_original != self.fecha_entrega_est
+
+            if fecha_est_cambio:
                 errors["fecha_entrega_est"] = ValidationError(
                     "La fecha de entrega estimada no puede ser en el pasado."
                 )

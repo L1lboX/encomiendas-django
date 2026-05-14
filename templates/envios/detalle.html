@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}{{ encomienda.codigo }} - Detalle{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="h3"><i class="fas fa-box me-2"></i>{{ encomienda.codigo }}</h2>
+    <a class="btn btn-outline-secondary" href="{% url 'encomienda_lista' %}">
+        <i class="fas fa-arrow-left me-1"></i>Volver
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card shadow mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Informacion general</h5>
+                <span class="badge-estado badge-{{ encomienda.estado }}">{{ encomienda.get_estado_display }}</span>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Descripcion</strong>
+                        <p>{{ encomienda.descripcion }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Ruta</strong>
+                        <p>{{ encomienda.ruta.origen }} - {{ encomienda.ruta.destino }}</p>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Peso</strong>
+                        <p>{{ encomienda.peso_kg }} kg</p>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Costo</strong>
+                        <p>S/ {{ encomienda.costo_envio }}</p>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Dias en transito</strong>
+                        <p>{{ encomienda.dias_en_transito }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Entrega estimada</strong>
+                        <p>{{ encomienda.fecha_entrega_est|date:"d/m/Y"|default:"Sin fecha" }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Tiene retraso</strong>
+                        <p>{% if encomienda.tiene_retraso %}<span class="text-danger">Si</span>{% else %}No{% endif %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Personas</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Remitente</h6>
+                        <p class="mb-1">{{ encomienda.remitente.nombre_completo }}</p>
+                        <small class="text-muted">{{ encomienda.remitente.nro_doc }}</small>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Destinatario</h6>
+                        <p class="mb-1">{{ encomienda.destinatario.nombre_completo }}</p>
+                        <small class="text-muted">{{ encomienda.destinatario.nro_doc }}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card shadow mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Cambiar estado</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" action="{% url 'encomienda_cambiar_estado' encomienda.pk %}">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form_estado.estado.id_for_label }}">Estado</label>
+                        {{ form_estado.estado }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form_estado.observacion.id_for_label }}">Observacion</label>
+                        {{ form_estado.observacion }}
+                    </div>
+                    <button class="btn btn-primary w-100" type="submit">Actualizar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow">
+    <div class="card-header">
+        <h5 class="mb-0">Historial de estados</h5>
+    </div>
+    <div class="card-body">
+        <ul class="list-group list-group-flush">
+            {% for item in encomienda.historial.all %}
+                <li class="list-group-item">
+                    <strong>{{ item.get_estado_anterior_display }} a {{ item.get_estado_nuevo_display }}</strong>
+                    <br>
+                    <small class="text-muted">{{ item.fecha_cambio|date:"d/m/Y H:i" }} por {{ item.empleado }}</small>
+                    {% if item.observacion %}<p class="mb-0 mt-2">{{ item.observacion }}</p>{% endif %}
+                </li>
+            {% empty %}
+                <li class="list-group-item text-center">No hay cambios de estado registrados.</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endblock %}
