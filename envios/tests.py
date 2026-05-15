@@ -1,11 +1,17 @@
 from datetime import timedelta
 from decimal import Decimal
 
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+from channels.testing import WebsocketCommunicator
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.test import TestCase
+from django.test import TestCase, TransactionTestCase
 from django.utils import timezone
+from rest_framework_simplejwt.tokens import AccessToken
 
 from clientes.models import Cliente
+from config.asgi import application
 from config.choices import EstadoEnvio, EstadoGeneral, TipoDocumento
 from envios.models import Empleado, Encomienda, HistorialEstado
 from rutas.models import Ruta
@@ -294,3 +300,123 @@ class CustomManagerTests(BaseModelTestCase):
         self.assertIn("destinatario", queryset.query.select_related)
         self.assertIn("ruta", queryset.query.select_related)
         self.assertIn("empleado_registro", queryset.query.select_related)
+
+
+class EncomiendaConsumerTests(TransactionTestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="wsuser",
+            email="wsuser@example.com",
+            password="admin123",
+        )
+        self.empleado = Empleado.objects.create(
+            codigo="EMPWS",
+            nombres="Web",
+            apellidos="Socket",
+            cargo="Operador",
+            email="wsuser@example.com",
+            estado=EstadoGeneral.ACTIVO,
+            fecha_ingreso=timezone.now().date(),
+        )
+        self.remitente = Cliente.objects.create(
+            tipo_doc=TipoDocumento.DNI,
+            nro_doc="11111111",
+            nombres="Remitente",
+            apellidos="Prueba",
+            estado=EstadoGeneral.ACTIVO,
+        )
+        self.destinatario = Cliente.objects.create(
+            tipo_doc=TipoDocumento.DNI,
+            nro_doc="22222222",
+            nombres="Destinatario",
+            apellidos="Prueba",
+            estado=EstadoGeneral.ACTIVO,
+        )
+        self.ruta = Ruta.objects.create(
+            codigo="LIM-CIX",
+            origen="Lima",
+            destino="Chiclayo",
+            precio_base=Decimal("30.00"),
+            dias_entrega=2,
+            estado=EstadoGeneral.ACTIVO,
+        )
+        self.encomienda = Encomienda.objects.create(
+            codigo="ENC-WS-001",
+            descripcion="Caja WebSocket",
+            peso_kg=Decimal("2.00"),
+            remitente=self.remitente,
+            destinatario=self.destinatario,
+            ruta=self.ruta,
+            empleado_registro=self.empleado,
+            costo_envio=Decimal("30.00"),
+            fecha_entrega_est=timezone.now().date() + timedelta(days=2),
+        )
+        self.token = str(AccessToken.for_user(self.user))
+
+    def test_conexion_sin_autenticacion(self):
+        async def prueba():
+            communicator = WebsocketCommunicator(application, "/ws/encomiendas/")
+            connected, code = await communicator.connect()
+            self.assertFalse(connected)
+            self.assertEqual(code, 4001)
+
+        async_to_sync(prueba)()
+
+    def test_conexion_autenticada(self):
+        async def prueba():
+            communicator = WebsocketCommunicator(
+                application,
+                f"/ws/encomiendas/?token={self.token}",
+            )
+            connected, _ = await communicator.connect()
+            self.assertTrue(connected)
+            data = await communicator.receive_json_from()
+            self.assertEqual(data["tipo"], "conectado")
+            await communicator.disconnect()
+
+        async_to_sync(prueba)()
+
+    def test_ping_pong(self):
+        async def prueba():
+            communicator = WebsocketCommunicator(
+                application,
+                f"/ws/encomiendas/?token={self.token}",
+            )
+            connected, _ = await communicator.connect()
+            self.assertTrue(connected)
+            await communicator.receive_json_from()
+            await communicator.send_json_to({"tipo": "ping"})
+            data = await communicator.receive_json_from()
+            self.assertEqual(data["tipo"], "pong")
+            await communicator.disconnect()
+
+        async_to_sync(prueba)()
+
+    def test_notificacion_via_channel_layer(self):
+        async def prueba():
+            communicator = WebsocketCommunicator(
+                application,
+                f"/ws/encomiendas/?token={self.token}",
+            )
+            connected, _ = await communicator.connect()
+            self.assertTrue(connected)
+            await communicator.receive_json_from()
+            channel_layer = get_channel_layer()
+            await channel_layer.group_send(
+                "encomiendas_global",
+                {
+                    "type": "encomienda.estado.cambio",
+                    "encomienda_id": self.encomienda.pk,
+                    "codigo": self.encomienda.codigo,
+                    "estado_anterior": EstadoEnvio.PENDIENTE,
+                    "estado_nuevo": EstadoEnvio.EN_TRANSITO,
+                    "empleado": str(self.empleado),
+                    "timestamp": timezone.now().isoformat(),
+                },
+            )
+            data = await communicator.receive_json_from()
+            self.assertEqual(data["tipo"], "estado_cambio")
+            self.assertEqual(data["codigo"], "ENC-WS-001")
+            await communicator.disconnect()
+
+        async_to_sync(prueba)()

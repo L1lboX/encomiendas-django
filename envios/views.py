@@ -1,9 +1,14 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.conf import settings
 from django.core.paginator import Paginator
+from django.db import connection
 from django.db import models
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_POST
+import redis
 
 from config.choices import EstadoEnvio, EstadoGeneral
 from .forms import CambiarEstadoForm, EncomiendaForm
@@ -30,12 +35,22 @@ def dashboard(request):
     total_activas = encomiendas.activas().count()
     total_transito = encomiendas.en_transito().count()
     total_retraso = encomiendas.con_retraso().count()
-    total_entregadas = encomiendas.entregadas().count()
+    total_entregadas = encomiendas.filter(
+        estado=EstadoEnvio.ENTREGADO,
+        fecha_entrega_real=timezone.now().date(),
+    ).count()
+    stats = {
+        "activas": total_activas,
+        "en_transito": total_transito,
+        "con_retraso": total_retraso,
+        "entregadas_hoy": total_entregadas,
+    }
     context = {
         "total_activas": total_activas,
         "total_transito": total_transito,
         "total_retraso": total_retraso,
         "total_entregadas": total_entregadas,
+        "stats_live": stats,
         "stats": [
             ("Activas", total_activas, "primary", "shipping-fast"),
             ("En transito", total_transito, "info", "truck"),
@@ -161,3 +176,56 @@ def encomienda_cambiar_estado(request, pk):
 def buscar_por_codigo(request, codigo):
     encomienda = get_object_or_404(Encomienda, codigo__iexact=codigo)
     return redirect("encomienda_detalle", pk=encomienda.pk)
+
+
+def health_check(request):
+    estado = {
+        "postgres": False,
+        "redis": False,
+        "channels": False,
+    }
+
+    try:
+        connection.ensure_connection()
+        estado["postgres"] = True
+    except Exception as exc:
+        estado["postgres_error"] = str(exc)
+
+    try:
+        r = redis.from_url(
+            settings.REDIS_URL,
+            socket_connect_timeout=2,
+            socket_timeout=2,
+        )
+        r.ping()
+        info = r.info()
+        estado["redis"] = True
+        estado["redis_memoria"] = info.get("used_memory_human")
+        estado["redis_clientes"] = info.get("connected_clients")
+        estado["redis_version"] = info.get("redis_version")
+    except Exception as exc:
+        estado["redis_error"] = str(exc)
+
+    try:
+        from asgiref.sync import async_to_sync
+        from channels.layers import get_channel_layer
+
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            "health_check",
+            {"type": "health.ping"},
+        )
+        estado["channels"] = True
+    except Exception as exc:
+        estado["channels_error"] = str(exc)
+
+    try:
+        r = redis.from_url(settings.REDIS_URL)
+        estado["empleados_conectados"] = r.scard(
+            "encomiendas:group:encomiendas_global"
+        )
+    except Exception:
+        estado["empleados_conectados"] = None
+
+    todo_ok = all([estado["postgres"], estado["redis"], estado["channels"]])
+    return JsonResponse(estado, status=200 if todo_ok else 503)

@@ -4,54 +4,240 @@
 
 {% block content %}
 <div class="row mb-4">
-    <div class="col-12">
+    <div class="col-12 d-flex justify-content-between align-items-center">
         <h2 class="h3"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</h2>
+        <span id="ws-badge" class="badge bg-secondary">Desconectado</span>
     </div>
 </div>
 
 <div class="row mb-4">
-    {% include 'partials/stat_card.html' with label='Activas' valor=total_activas icono='shipping-fast' color_hex='#0d6efd' %}
-    {% include 'partials/stat_card.html' with label='En transito' valor=total_transito icono='truck' color_hex='#0d6efd' %}
-    {% include 'partials/stat_card.html' with label='Con retraso' valor=total_retraso icono='exclamation-triangle' color_hex='#dc3545' %}
-    {% include 'partials/stat_card.html' with label='Entregadas' valor=total_entregadas icono='check-circle' color_hex='#198754' %}
+    <div class="col-md-3 mb-3">
+        <div class="card shadow h-100">
+            <div class="card-body d-flex align-items-center">
+                <i class="fas fa-shipping-fast fa-2x text-primary me-3"></i>
+                <div>
+                    <div class="text-muted small">Activas</div>
+                    <div id="stat-activas" class="h3 mb-0">{{ total_activas }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card shadow h-100">
+            <div class="card-body d-flex align-items-center">
+                <i class="fas fa-truck fa-2x text-primary me-3"></i>
+                <div>
+                    <div class="text-muted small">En transito</div>
+                    <div id="stat-en-transito" class="h3 mb-0">{{ total_transito }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card shadow h-100">
+            <div class="card-body d-flex align-items-center">
+                <i class="fas fa-exclamation-triangle fa-2x text-danger me-3"></i>
+                <div>
+                    <div class="text-muted small">Con retraso</div>
+                    <div id="stat-retraso" class="h3 mb-0">{{ total_retraso }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card shadow h-100">
+            <div class="card-body d-flex align-items-center">
+                <i class="fas fa-check-circle fa-2x text-success me-3"></i>
+                <div>
+                    <div class="text-muted small">Entregadas hoy</div>
+                    <div id="stat-entregadas" class="h3 mb-0">{{ total_entregadas }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
-<div class="card shadow">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="fas fa-clock me-2"></i>Ultimas encomiendas</h5>
-        <a href="{% url 'encomienda_lista' %}" class="btn btn-sm btn-outline-primary">Ver listado</a>
+<div class="row">
+    <div class="col-lg-8 mb-4">
+        <div class="card shadow">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-clock me-2"></i>Ultimas encomiendas</h5>
+                <a href="{% url 'encomienda_lista' %}" class="btn btn-sm btn-outline-primary">Ver listado</a>
+            </div>
+            <div class="card-body">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Codigo</th>
+                            <th>Ruta</th>
+                            <th>Remitente</th>
+                            <th>Destinatario</th>
+                            <th>Estado</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for enc in ultimas_encomiendas %}
+                            <tr data-codigo="{{ enc.codigo }}">
+                                <td><strong>{{ enc.codigo }}</strong></td>
+                                <td>{{ enc.ruta.origen }} - {{ enc.ruta.destino }}</td>
+                                <td>{{ enc.remitente.nombre_completo }}</td>
+                                <td>{{ enc.destinatario.nombre_completo }}</td>
+                                <td><span class="badge-estado badge-{{ enc.estado }}">{{ enc.get_estado_display }}</span></td>
+                                <td>
+                                    <a class="btn btn-sm btn-outline-primary" href="{% url 'encomienda_detalle' enc.pk %}">Ver</a>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center py-3">No hay encomiendas</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
-    <div class="card-body">
-        <table class="table table-hover align-middle mb-0">
-            <thead>
-                <tr>
-                    <th>Codigo</th>
-                    <th>Ruta</th>
-                    <th>Remitente</th>
-                    <th>Destinatario</th>
-                    <th>Estado</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for enc in ultimas_encomiendas %}
-                    <tr>
-                        <td><strong>{{ enc.codigo }}</strong></td>
-                        <td>{{ enc.ruta.origen }} - {{ enc.ruta.destino }}</td>
-                        <td>{{ enc.remitente.nombre_completo }}</td>
-                        <td>{{ enc.destinatario.nombre_completo }}</td>
-                        <td><span class="badge-estado badge-{{ enc.estado }}">{{ enc.get_estado_display }}</span></td>
-                        <td>
-                            <a class="btn btn-sm btn-outline-primary" href="{% url 'encomienda_detalle' enc.pk %}">Ver</a>
-                        </td>
-                    </tr>
-                {% empty %}
-                    <tr>
-                        <td colspan="6" class="text-center py-3">No hay encomiendas</td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="col-lg-4 mb-4">
+        <div class="card shadow">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-bolt me-2"></i>Actividad en vivo</h5>
+                <span id="feed-count" class="badge bg-primary">0</span>
+            </div>
+            <div class="card-body">
+                <div id="feed-lista" class="list-group list-group-flush">
+                    <div class="text-muted small">Esperando eventos...</div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
+
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="ws-toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <strong class="me-auto">Encomiendas</strong>
+            <small>Ahora</small>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Cerrar"></button>
+        </div>
+        <div id="ws-toast-body" class="toast-body"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const WS_URL = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/dashboard/';
+let ws = null;
+let intentos = 0;
+let feedCount = 0;
+const maxIntentos = 10;
+
+function conectarWebSocket() {
+    ws = new WebSocket(WS_URL);
+
+    ws.onopen = function() {
+        intentos = 0;
+        const badge = document.getElementById('ws-badge');
+        badge.textContent = 'EN VIVO';
+        badge.className = 'badge bg-success';
+        ws.send(JSON.stringify({tipo: 'solicitar_stats'}));
+    };
+
+    ws.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        if (data.tipo === 'stats_iniciales' || data.tipo === 'stats_actualizado') {
+            actualizarStats(data.stats);
+            if (data.evento) {
+                agregarEvento(data.evento);
+                mostrarToast(data.evento);
+                actualizarFilaTabla(data.evento.codigo, data.evento.estado_nuevo);
+            }
+        }
+        if (data.tipo === 'progreso') {
+            agregarProgreso(data);
+        }
+    };
+
+    ws.onclose = function(event) {
+        const badge = document.getElementById('ws-badge');
+        if (event.code === 4001 || event.code === 1000) {
+            badge.textContent = 'Desconectado';
+            badge.className = 'badge bg-danger';
+            return;
+        }
+
+        intentos += 1;
+        if (intentos <= maxIntentos) {
+            badge.textContent = 'Reconectando...';
+            badge.className = 'badge bg-warning text-dark';
+            const delay = Math.min(30000, 1000 * Math.pow(2, intentos - 1));
+            setTimeout(conectarWebSocket, delay);
+        } else {
+            badge.textContent = 'Desconectado';
+            badge.className = 'badge bg-danger';
+        }
+    };
+
+    ws.onerror = function(error) {
+        console.error('WebSocket error:', error);
+    };
+}
+
+function actualizarStats(stats) {
+    document.getElementById('stat-activas').textContent = stats.activas;
+    document.getElementById('stat-en-transito').textContent = stats.en_transito;
+    document.getElementById('stat-retraso').textContent = stats.con_retraso;
+    document.getElementById('stat-entregadas').textContent = stats.entregadas_hoy;
+}
+
+function agregarEvento(evento) {
+    feedCount += 1;
+    document.getElementById('feed-count').textContent = feedCount;
+    const lista = document.getElementById('feed-lista');
+    if (feedCount === 1) {
+        lista.innerHTML = '';
+    }
+    const item = document.createElement('div');
+    item.className = 'list-group-item px-0';
+    item.innerHTML = '<div class="fw-semibold">' + evento.codigo + '</div>' +
+        '<div class="small text-muted">' + evento.estado_anterior + ' -> ' + evento.estado_nuevo + '</div>' +
+        '<div class="small">' + evento.empleado + '</div>';
+    lista.prepend(item);
+}
+
+function agregarProgreso(data) {
+    feedCount += 1;
+    document.getElementById('feed-count').textContent = feedCount;
+    const lista = document.getElementById('feed-lista');
+    if (feedCount === 1) {
+        lista.innerHTML = '';
+    }
+    const pct = Math.round((data.actual / data.total) * 100);
+    const item = document.createElement('div');
+    item.className = 'list-group-item px-0';
+    item.innerHTML = '<div class="fw-semibold">bulk_create ' + pct + '%</div>' +
+        '<div class="small text-muted">' + data.actual + ' de ' + data.total + '</div>' +
+        '<div class="small">' + data.codigo + '</div>';
+    lista.prepend(item);
+}
+
+function mostrarToast(evento) {
+    const body = document.getElementById('ws-toast-body');
+    body.textContent = evento.codigo + ': ' + evento.estado_anterior + ' -> ' + evento.estado_nuevo;
+    const toast = bootstrap.Toast.getOrCreateInstance(document.getElementById('ws-toast'));
+    toast.show();
+}
+
+function actualizarFilaTabla(codigo, estadoNuevo) {
+    const fila = document.querySelector('[data-codigo="' + codigo + '"]');
+    if (!fila) return;
+    const badge = fila.querySelector('.badge-estado');
+    if (!badge) return;
+    badge.className = 'badge-estado badge-' + estadoNuevo;
+    badge.textContent = estadoNuevo;
+}
+
+document.addEventListener('DOMContentLoaded', conectarWebSocket);
+</script>
 {% endblock %}

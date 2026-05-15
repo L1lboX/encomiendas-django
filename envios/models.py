@@ -71,7 +71,7 @@ class Encomienda(models.Model):
         decimal_places=2,
         validators=[
             validar_peso_positivo,
-            MinValueValidator(0.01, message="El peso minimo es 0.01 kg"),
+            MinValueValidator(Decimal("0.01"), message="El peso minimo es 0.01 kg"),
         ],
     )
     volumen_cm3 = models.DecimalField(
@@ -218,7 +218,52 @@ class Encomienda(models.Model):
             empleado=empleado,
             observacion=observacion,
         )
+        self._notificar_cambio_estado(estado_anterior, nuevo_estado, empleado)
         return self
+
+    def _notificar_cambio_estado(self, estado_anterior, estado_nuevo, empleado):
+        try:
+            from asgiref.sync import async_to_sync
+            from channels.layers import get_channel_layer
+
+            channel_layer = get_channel_layer()
+            if channel_layer is None:
+                return
+
+            evento = {
+                "type": "encomienda.estado.cambio",
+                "encomienda_id": self.pk,
+                "codigo": self.codigo,
+                "estado_anterior": estado_anterior,
+                "estado_nuevo": estado_nuevo,
+                "empleado": str(empleado),
+                "timestamp": timezone.now().isoformat(),
+            }
+            async_to_sync(channel_layer.group_send)("encomiendas_global", evento)
+            async_to_sync(channel_layer.group_send)(f"encomienda_{self.pk}", evento)
+            async_to_sync(channel_layer.group_send)(
+                "dashboard",
+                {
+                    "type": "dashboard.actualizar",
+                    "stats": self._stats_dashboard(),
+                    "evento": evento,
+                },
+            )
+        except Exception:
+            return
+
+    @staticmethod
+    def _stats_dashboard():
+        hoy = timezone.now().date()
+        return {
+            "activas": Encomienda.objects.activas().count(),
+            "en_transito": Encomienda.objects.en_transito().count(),
+            "con_retraso": Encomienda.objects.con_retraso().count(),
+            "entregadas_hoy": Encomienda.objects.filter(
+                estado=EstadoEnvio.ENTREGADO,
+                fecha_entrega_real=hoy,
+            ).count(),
+        }
 
     def calcular_costo(self):
         """
